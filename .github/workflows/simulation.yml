@@ -1,0 +1,164 @@
+name: Sherpa pO Simulation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      events:
+        description: 'Number of events to generate'
+        required: false
+        default: '10000'
+        type: string
+
+env:
+  EVENTS: ${{ github.event.inputs.events || '10000' }}
+
+jobs:
+  sherpa-simulation:
+    runs-on: ubuntu-latest
+
+    container:
+      image: hepstore/rivet-sherpa:latest
+      options: --user root
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        apt-get update && apt-get install -y \
+          git \
+          wget \
+          python3 \
+          python3-pip \
+          && rm -rf /var/lib/apt/lists/*
+
+    - name: Setup working directory
+      run: |
+        mkdir -p results
+        ls -la
+
+    - name: Modify Run.dat for CI
+      run: |
+        # Update the number of events for CI if specified
+        if [ -n "$EVENTS" ] && [ "$EVENTS" != "10000" ]; then
+          sed -i "s/EVENTS 10000/EVENTS $EVENTS/" Run.dat
+        fi
+        echo "Running with $EVENTS events"
+
+    - name: Run Sherpa simulation
+      run: |
+        echo "Starting Sherpa simulation..."
+        echo "Configuration:"
+        cat Run.dat
+        echo ""
+        echo "Running Sherpa..."
+
+        # Run Sherpa with error handling
+        Sherpa -f Run.dat
+
+        # Check if simulation was successful
+        if [ $? -eq 0 ]; then
+          echo "Sherpa simulation completed successfully!"
+        else
+          echo "Sherpa simulation failed!"
+          exit 1
+        fi
+
+    - name: Verify output files
+      run: |
+        echo "Checking generated files..."
+        ls -la
+
+        # Check for expected output files
+        if [ -f "sherpa_events.lhe.gz" ]; then
+          echo "✓ LHEF events file generated"
+          echo "Events generated: $(zgrep -c "<event>" sherpa_events.lhe.gz 2>/dev/null || echo 'unknown')"
+        else
+          echo "✗ LHEF events file not found"
+        fi
+
+        if [ -f "pO_Z.yoda" ]; then
+          echo "✓ RIVET analysis file generated"
+          echo "File size: $(du -h pO_Z.yoda | cut -f1)"
+        else
+          echo "✗ RIVET analysis file not found"
+        fi
+
+        if [ -f "sherpa.log" ]; then
+          echo "✓ Sherpa log file generated"
+          echo "Log summary:"
+          grep -E "(Total XS|integration efficiency|Events|Finished)" sherpa.log | head -10
+        fi
+
+    - name: Generate RIVET plots (if analysis successful)
+      run: |
+        if [ -f "pO_Z.yoda" ]; then
+          echo "Generating RIVET HTML report..."
+          mkdir -p rivet_plots
+          rivet-mkhtml pO_Z.yoda -o rivet_plots/
+          echo "✓ RIVET plots generated"
+        else
+          echo "Skipping RIVET plot generation - no analysis file found"
+        fi
+
+    - name: Create summary report
+      run: |
+        echo "# Sherpa pO Simulation Report" > simulation_report.md
+        echo "" >> simulation_report.md
+        echo "## Configuration" >> simulation_report.md
+        echo "- Collision system: Proton (7 TeV) + Oxygen (2.5 TeV)" >> simulation_report.md
+        echo "- Process: Drell-Yan Z production" >> simulation_report.md
+        echo "- Events: $EVENTS" >> simulation_report.md
+        echo "- PDFs: Proton (CT18NLO) + Oxygen (nuclear)" >> simulation_report.md
+        echo "" >> simulation_report.md
+        echo "## Results" >> simulation_report.md
+
+        if [ -f "sherpa.log" ]; then
+          echo "### Cross Section" >> simulation_report.md
+          grep "Total XS" sherpa.log | tail -1 >> simulation_report.md
+          echo "" >> simulation_report.md
+        fi
+
+        if [ -f "pO_Z.yoda" ]; then
+          echo "### RIVET Analysis" >> simulation_report.md
+          echo "- Analysis file: pO_Z.yoda ($(du -h pO_Z.yoda | cut -f1))" >> simulation_report.md
+          echo "- RIVET plots: Generated" >> simulation_report.md
+          echo "" >> simulation_report.md
+        fi
+
+        if [ -f "sherpa_events.lhe.gz" ]; then
+          echo "### Events" >> simulation_report.md
+          echo "- LHEF file: sherpa_events.lhe.gz ($(du -h sherpa_events.lhe.gz | cut -f1))" >> simulation_report.md
+          echo "- Event count: $(zgrep -c "<event>" sherpa_events.lhe.gz 2>/dev/null || echo 'unknown')" >> simulation_report.md
+          echo "" >> simulation_report.md
+        fi
+
+        echo "## Files Generated" >> simulation_report.md
+        ls -la *.gz *.yoda *.log 2>/dev/null || echo "No output files found" >> simulation_report.md
+
+        cat simulation_report.md
+
+    - name: Upload simulation results
+      uses: actions/upload-artifact@v4
+      with:
+        name: sherpa-pO-results-${{ github.run_number }}
+        path: |
+          *.lhe.gz
+          *.yoda
+          *.log
+          rivet_plots/
+          simulation_report.md
+        retention-days: 30
+
+    - name: Upload RIVET plots
+      if: success() && hashFiles('pO_Z.yoda') != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: rivet-plots-${{ github.run_number }}
+        path: rivet_plots/
+        retention-days: 30
