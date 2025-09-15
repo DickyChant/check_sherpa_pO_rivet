@@ -63,6 +63,8 @@ jobs:
         # Run Sherpa with error handling
         Sherpa -f Run.dat
 
+        cat Status_*
+
         # Check if simulation was successful
         if [ $? -eq 0 ]; then
           echo "Sherpa simulation completed successfully!"
