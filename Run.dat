@@ -19,11 +19,15 @@ LHEF_PDF_NUMBER_2 1001  # Oxygen PDF
 
 # Process: Drell-Yan Z production
 PROCESSES:
-- 93 93 -> 90 91 92 93:  # p O -> Z -> mu+ mu-
-  Order: {QCD: 0, EW: 2}
-  CKKW: 30
-  Integration_Error: 0.05
-  End: {QCD: 0, EW: 2}
+- 93 93 -> 90 91 92 93
+
+# Process settings
+Order_QCD: 0
+Order_EW: 2
+CKKW: 30
+Integration_Error: 0.05
+End_QCD: 0
+End_EW: 2
 
 # Scale settings
 SCALES METS{FSF}{MU_F2}{MU_R2}{MU_Q2}(pT2)
