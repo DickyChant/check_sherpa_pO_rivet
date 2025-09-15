@@ -1,58 +1,20 @@
-# Sherpa configuration for pO collisions
-# Proton (7 TeV) + Oxygen (2.5 TeV) with asymmetric PDFs
+(run){
+  EVENTS 10000;
+  # collider setup
+  BEAM_1 2212 7000; BEAM_2 2212 2500; 
+  PDF_SET_1 325300;
+  PDF_SET_2 3215700
 
-# Sherpa version and model
-SHERPA_VERSION 3.0.0beta1
-MODEL SM
+}(run);
 
-# Beam setup
-BEAMS 1 2
-BEAM_ENERGIES 7000 2500  # Proton 7 TeV, Oxygen 2.5 TeV
+(processes){
+  Process 93 93 -> 11 -11 93{4}
+  Order (*,2);
+  End process;
+}(processes);
 
-# PDF configuration
-PDF_SET Proton 13  # CT18NLO for proton (LHEF_PDF_NUMBER_1)
-PDF_SET Oxygen 1001  # Oxygen nuclear PDF (LHEF_PDF_NUMBER_2)
-
-# Use LHEF PDF numbers as specified
-LHEF_PDF_NUMBER_1 13  # Proton PDF
-LHEF_PDF_NUMBER_2 1001  # Oxygen PDF
-
-# Process: Drell-Yan Z production
-PROCESSES:
-- 93 93 -> 90 91 92 93
-
-# Process settings
-Order_QCD: 0
-Order_EW: 2
-CKKW: 30
-Integration_Error: 0.05
-End_QCD: 0
-End_EW: 2
-
-# Scale settings
-SCALES METS{FSF}{MU_F2}{MU_R2}{MU_Q2}(pT2)
-
-# Shower and matching
-SHOWER_GENERATOR CSS
-CSS_RECOGNIZE Z
-CSS_KFACTOR_MODE 1
-
-# Hadronization
-FRAGMENTATION Off  # Keep partons for RIVET analysis
-
-# Event generation
-EVENTS 10000
-EVENT_OUTPUT LHEF[gzip]
-
-# RIVET analysis - MC validation for pO collisions
-ANALYSIS Rivet
-RIVET_ANALYSES MC_ZINC MC_ZJETS
-RIVET_YODA_FILE pO_Z.yoda
-
-# Random seed
-RANDOM_SEED 12345
-
-# Technical settings
-BATCH_MODE 1
-MPI_Handler None
-OLP None
+(analysis){
+    BEGIN_RIVET {
+      -a MC_ZINC MC_ZJETS
+    } END_RIVET
+  }(analysis)
