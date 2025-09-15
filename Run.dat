@@ -2,8 +2,9 @@
   EVENTS 10000;
   # collider setup
   BEAM_1 2212 7000; BEAM_2 2212 2500; 
-  PDF_SET_1 325300;
-  PDF_SET_2 3215700
+  PDF_SET_1 NNPDF31_nnlo_as_0118_mc_hessian_pdfas;
+  PDF_SET_2 TUJU21_nnlo_16_8;
+  PDF_LIBRARY LHAPDFSherpa;
 
 }(run);
 
